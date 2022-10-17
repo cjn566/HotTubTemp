@@ -1,0 +1,2 @@
+*.sql linguist-detactable=false
+*.js linguist-detectable=true
