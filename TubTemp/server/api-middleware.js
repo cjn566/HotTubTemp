@@ -8,7 +8,6 @@ const path = '/api'
 const app = express()
 app.use(bodyParser.json())
 
-
 import ApplicationRegistry from './ApplicationRegistry'
 
 import mainRoutes from './api/controllers/MainController'

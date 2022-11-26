@@ -19,6 +19,12 @@ module.exports = {
   */
   loading: { color: '#fff' },
   /*
+  ** Global CSS
+  */
+  css: [
+    '~/assets/css/site.css'
+  ],
+  /*
   ** Plugins to load before mounting the App
   */
   plugins: [
@@ -43,7 +49,9 @@ module.exports = {
   ** See https://axios.nuxtjs.org/options
   */
   axios: {
-    baseURL: process.env.BASE_API_URL
+    publicRuntimeConfig: {
+      baseURL: process.env.BASE_URL
+    }
   },
 
   bootstrapVue: {
@@ -64,6 +72,7 @@ module.exports = {
   ** Build configuration
   */
   build: {
+    postcss: null,
     /*
     ** You can extend webpack config here
     */

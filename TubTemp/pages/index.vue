@@ -1,50 +1,44 @@
 <template>
-  <b-container>
-    <div v-if="tempsLoaded">
-      <div v-if="allRecords.length > 0">
-        <b-row>
-          <b-col>
-            <h1>{{ latest.average }}°F</h1>
-            <div v-if="latest.minutesAgo < -2">
-              <p v-if="latest.minutesAgo < -20">
-                As of {{ -latest.minutesAgo }} minutes ago!
-              </p>
-              <p v-else>As of {{ -latest.minutesAgo }} minutes ago!</p>
-            </div>
-          </b-col>
-          <b-col>
-            <button @click="target++">
-              up
-            </button>
-            {{target}}
-            <button @click="target--">
-              down
-            </button>
-          </b-col>
-        </b-row>
-
-        <div v-if="prediction.isCold && prediction.canPredict">
-          ETA: {{ prediction.minutes }} minutes
-        </div>
-        <div>
-          <scatter-chart
-            :v-if="tempsLoaded"
-            :chart-options="chartOptions"
-            :chart-data="chartData"
-          />
-          <button @click="changeTimeScale()">Change time scale</button
-          >{{ minutesSet[minutesIdx] }}
-        </div>
+  <div v-if="tempsLoaded">
+    <div v-if="allRecords.length > 0">
+      <h1>{{ latest.mixed ? "" : "~" }}{{ latest.average }}°F</h1>
+      <div id="tempIcons">
+        <img v-if="latest.average < (target - tolerance)" src="~assets/icons/Ice.svg" height="100dp" />
+        <img v-else-if ="latest.average > (target + tolerance)" src="~assets/icons/Fire.svg" height="100dp" />
+        <img v-else src="~assets/icons/Steam.svg" height="100dp" />
       </div>
-      <div v-else>No temperature data!</div>
+      <div v-if="latest.minutesAgo < -2">
+        <p v-if="latest.minutesAgo < -20">
+          As of {{ -latest.minutesAgo }} minutes ago!
+        </p>
+        <p v-else>As of {{ -latest.minutesAgo }} minutes ago!</p>
+      </div>
+      <button @click="changeTarget(-1)">-</button>
+      {{ target }}
+      <button @click="changeTarget(1)">+</button>
+
+      <div v-if="prediction.isCold && prediction.canPredict">
+        ETA: {{ prediction.minutes }} minutes
+      </div>
+      <div>
+        <scatter-chart
+          :v-if="tempsLoaded"
+          :chart-options="chartOptions"
+          :chart-data="chartData"
+        />
+        <button @click="changeTimeScale()">Change time scale</button
+        >{{ minutesSet[minutesIdx] }}
+      </div>
     </div>
-    <div v-else>Loading...</div>
-  </b-container>
+    <div v-else>No temperature data!</div>
+  </div>
+  <div v-else>Loading...</div>
 </template>
 
 <script>
 import { Scatter as ScatterChart } from "vue-chartjs";
 import annotationPlugin from "chartjs-plugin-annotation";
+import "chartjs-adapter-moment";
 import {
   Chart as ChartJS,
   Title,
@@ -54,6 +48,7 @@ import {
   LinearScale,
   PointElement,
   CategoryScale,
+  TimeScale,
 } from "chart.js";
 ChartJS.register(
   Title,
@@ -63,15 +58,16 @@ ChartJS.register(
   LinearScale,
   PointElement,
   CategoryScale,
-  annotationPlugin
+  annotationPlugin,
+  TimeScale
 );
-import linReg from "~/utils/LinearRegression";
+import regression from "regression";
 
 function convertRecord(record) {
   record.date = new Date(record.created_at.replace(" ", "T"));
   delete record.created_at;
 
-  record.average = ((record.upper + record.lower) / 2).toFixed(1);
+  record.average = +((record.upper + record.lower) / 2).toFixed(1);
   record.mixed = Math.abs(record.upper - record.lower) < 1;
   return record;
 }
@@ -87,6 +83,8 @@ export default {
       minutesIdx: 0,
       minutesSet: [30, 120, 360, 720],
       prediction: {
+        minDataPoints: 11,
+        valid: false,
         isCold: true,
         canPredict: false,
         minutes: 0,
@@ -94,6 +92,7 @@ export default {
         b: 0,
       },
       target: 106,
+      tolerance: 2,
       updateTimer: {},
     };
   },
@@ -109,34 +108,44 @@ export default {
       return {
         datasets: [
           {
+            // Upper Probe
             data: subrecords
               .filter((r) => !r.mixed)
               .map((r) => {
                 return {
-                  x: r.minutesAgo,
+                  x: r.date,
                   y: r.upper,
                 };
               }),
+            backgroundColor: "red",
           },
           {
+            // Lower Probe
             data: subrecords
               .filter((r) => !r.mixed)
               .map((r) => {
                 return {
-                  x: r.minutesAgo,
+                  x: r.date,
                   y: r.lower,
                 };
               }),
+            backgroundColor: "blue",
           },
           {
+            // Homogenous readings
             data: subrecords
               .filter((r) => r.mixed)
               .map((r) => {
                 return {
-                  x: r.minutesAgo,
+                  x: r.date,
                   y: r.average,
                 };
               }),
+            backgroundColor: "green",
+          },
+          {
+            data: this.prediction.forecast,
+            backgroundColor: "purple",
           },
         ],
       };
@@ -147,27 +156,38 @@ export default {
         showLine: false,
         scales: {
           x: {
-            title: {
-              display: true,
-              text: "Minutes",
+            type: "time",
+            time: {
+              unit: "minute",
             },
-            min: -this.minutesSet[this.minutesIdx],
-            max: 10,
+            ticks: {
+              major: {
+                enabled: true,
+              },
+              callback: function (value, index, ticks) {
+                return value;
+              },
+            },
           },
           y: {
-            title: {
-              display: true,
-              text: "°F",
+            suggestedMin: 90,
+            suggestedMax: 110,
+            grid: {
+              circular: true,
             },
-            //min: 60,
-            max: 115,
+            ticks: {
+              size: 10,
+              callback: function (value, index, ticks) {
+                return value + "°";
+              },
+            },
           },
         },
         plugins: {
           legend: {
             display: false,
           },
-          autocolors: false,
+          autocolors: true,
           annotation: {
             annotations: {
               targetTemp: {
@@ -177,13 +197,6 @@ export default {
                 borderColor: "rgb(255, 99, 132)",
                 borderWidth: 1,
               },
-              prediction: {
-                type: "line",
-                yMin: this.prediction.b,
-                xMin: 0,
-                yMax: this.prediction.m * 10 + this.prediction.b,
-                xMax: 10,
-              },
             },
           },
         },
@@ -192,7 +205,17 @@ export default {
   },
   mounted() {
     this.getTemps();
+
+    var id = window.setTimeout(function () {}, 0);
+    while (id--) {
+      window.clearTimeout(id); // will do nothing if no timeout with id is present
+    }
     this.updateTimer = setInterval(this.getLastTemp, 60 * 1000);
+
+    const str = localStorage.getItem("targetTemp");
+    if (typeof str == "string" && !isNaN(str) && !isNaN(parseInt(str))) {
+      this.target = +str;
+    }
   },
   methods: {
     async getTemps() {
@@ -201,7 +224,6 @@ export default {
       this.tempsLoaded = true;
       this.allRecords = res.data;
       this.allRecords = this.allRecords.map(convertRecord);
-      this.setMinutesAgo();
       this.getLinReg();
     },
     async getLastTemp() {
@@ -213,27 +235,78 @@ export default {
         lastTemp = convertRecord(lastTemp);
         this.allRecords.unshift(lastTemp);
       }
-      this.setMinutesAgo();
       this.getLinReg();
     },
-    setMinutesAgo() {
-      let now = Date.now();
-      this.allRecords.forEach((r) => {
-        r.minutesAgo = r.minutesAgo = -Math.floor((now - r.date) / (1000 * 60));
-      });
-    },
     getLinReg() {
-      this.prediction = linReg(
-        this.allRecords.slice(0, 20).map((r) => {
-          return { x: r.minutesAgo, y: r.average };
-        })
-      );
-      var diff = this.target - this.latest.average;
-      this.prediction.isCold = diff > 0;
-      this.prediction.canPredict = diff > 0 && this.prediction.m > 0.1;
-      this.prediction.minutes = this.prediction.canPredict
-        ? diff / this.prediction.m
-        : null;
+      this.prediction.valid = false;
+      this.prediction.fit = "none";
+      if (this.allRecords.length >= this.prediction.minDataPoints) {
+        var f = [],
+          now = Date.now();
+        const data = this.allRecords
+          .slice(0, this.prediction.minDataPoints)
+          .map((r) => {
+            return [-(now - r.date) / 60000, r.average];
+          });
+        console.log(data);
+        const result = regression.polynomial(data, { order: 2, precision: 3 });
+        this.prediction.regression = result;
+
+        for (var x = 0; x < 10; x++) {
+          f.push({ x: new Date(now + x * 60000), y: result.predict(x)[1] });
+        }
+        this.prediction.forecast = f;
+
+        var diff = this.target - this.latest.average;
+        this.prediction.isCold = diff > 0;
+
+        if (this.prediction.isCold) {
+          if (result.equation[0] == 0) {
+            // fit is linear
+            this.prediction.fit = "linear";
+            this.prediction.minutes =
+              (this.target - result.equation[2]) / result.equation[1];
+            if (this.prediction.minutes > 0 && this.prediction.minutes < 60) {
+              this.prediction.valid = true;
+            }
+          } else {
+            // Fit is quadratic
+            this.prediction.fit = "quadratic";
+            const a = result.equation[0];
+            const b = result.equation[1];
+            const c = result.equation[2] - this.target;
+            const D = Math.sqrt(Math.pow(b, 2) - 4 * a * c);
+            var sol1 = (-b + D) / (2 * a);
+            var sol2 = (-b - D) / (2 * a);
+
+            this.prediction.sol1 = sol1;
+            this.prediction.sol2 = sol2;
+
+            this.prediction.minutes = sol1;
+            if (sol1 > 0) {
+              if (sol2 > 0) {
+                if (sol1 - sol2 > 0) {
+                  this.prediction.minutes = sol2;
+                  this.prediction.valid = true;
+                } else {
+                  this.prediction.valid = true;
+                }
+              } else {
+                this.prediction.valid = true;
+              }
+            } else {
+              if (sol2 > 0) {
+                this.prediction.minutes = sol2;
+                this.prediction.valid = true;
+              }
+            }
+          }
+        }
+      }
+    },
+    changeTarget(inc) {
+      this.target += +inc;
+      localStorage.setItem("targetTemp", this.target);
     },
     changeTimeScale() {
       this.minutesIdx = (this.minutesIdx + 1) % this.minutesSet.length;

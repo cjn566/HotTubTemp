@@ -30,7 +30,7 @@ class MainController {
 
   async getLastTemp(req, res) {
 
-    console.log("getting last temp\n")
+    console.log("getting last temp - " + req.ip)
     let temp = await this.mainService.getLastTemp()
     return res.status(200).json(temp)
   }
