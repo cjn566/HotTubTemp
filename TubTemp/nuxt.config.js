@@ -1,6 +1,3 @@
-const VUE_AUTH0_CLIENT_ID = process.env.AUTH0_CLIENT_ID
-const VUE_AUTH0_AUDIENCE = process.env.AUTH0_AUDIENCE
-const VUE_AUTH0_DOMAIN = process.env.AUTH0_DOMAIN
 
 module.exports = {
   /*
@@ -25,12 +22,6 @@ module.exports = {
     '~/assets/css/site.css'
   ],
   /*
-  ** Plugins to load before mounting the App
-  */
-  plugins: [
-    { src: '~/plugins/axios.js' }
-  ],
-  /*
   ** Nuxt.js dev-modules
   */
   buildModules: [
@@ -50,7 +41,8 @@ module.exports = {
   */
   axios: {
     publicRuntimeConfig: {
-      baseURL: process.env.BASE_URL
+      baseURL: process.env.BASE_URL,
+      browserBaseURL: process.env.BASE_URL
     }
   },
 
