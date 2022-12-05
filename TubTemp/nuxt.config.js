@@ -39,10 +39,9 @@ module.exports = {
   ** Axios module configuration
   ** See https://axios.nuxtjs.org/options
   */
-  axios: {
-    publicRuntimeConfig: {
-      baseURL: process.env.BASE_URL,
-      browserBaseURL: process.env.BASE_URL
+  publicRuntimeConfig: {
+    axios: {
+      browserBaseURL: process.env.BROWSER_BASE_URL
     }
   },
 
