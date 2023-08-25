@@ -1,5 +1,5 @@
 
-module.exports = {
+export default {
   /*
   ** Headers of the page
   */

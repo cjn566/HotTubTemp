@@ -2,9 +2,12 @@
 import bodyParser from 'body-parser'
 import express from 'express'
 import consola from 'consola'
-import { Nuxt, Builder } from 'nuxt'
 
-require('dotenv').config()
+import { Nuxt, Builder } from 'nuxt'
+// import nuxt from 'nuxt'
+
+import dotenv from 'dotenv'
+dotenv.config()
 
 const app = express()
 app.use(bodyParser.json())
@@ -13,12 +16,16 @@ app.use(bodyParser.urlencoded({
 }))
 
 // Import and Set Nuxt.js options
-const config = require('../nuxt.config.js')
+import config from '../nuxt.config.js'
 config.dev = process.env.NODE_ENV !== 'production'
 
 async function start () {
   // Init Nuxt.js
+
   const nuxt = new Nuxt(config)
+  // const nuxt = new loadNuxt(config)
+  // const nuxt = new createNuxt(config)
+  // const nuxt = new build(config)
 
   const { host, port } = nuxt.options.server
 
